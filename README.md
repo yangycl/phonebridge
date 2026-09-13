@@ -28,6 +28,12 @@ xdg-open /mnt/phone
 
 連真機：手機與電腦同一 LAN，App 顯示埠與 PIN，把 `--host` 換成手機 IP。
 
+## 桌面圖形介面
+
+Android App 會顯示 6 字元的 IP 代碼與 PIN。電腦端直接雙擊
+`dist/PhoneBridge`，輸入這兩項即可透過區網連線，不需要 ADB。連線後按
+「開啟資料夾」瀏覽手機內容；目前掛載為唯讀。
+
 ## 目錄
 
 - `proto/` 協定說明
