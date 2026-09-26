@@ -1,13 +1,11 @@
 # PhoneBridge Android exporter
 
-普通 App：在區網聽 TCP `17420`，用 PIN 配對，匯出外部共用儲存。
+Java App：區網聽 TCP `17420`，PIN 配對，匯出外部共用儲存。
 
-v0 以原始碼為主。用 Android Studio 開這個目錄建 APK。
+用 Android Studio 開 `android/` 建 APK。原始碼在 `app/src/main/java/org/phonebridge/`：
 
-需要權限：
+- `MainActivity.java` PIN / IP / 開始停止
+- `BridgeService.java` 前景服務
+- `BridgeServer.java` 協定（list / stat / read，寫入回 `ro`）
 
-- `INTERNET`
-- `FOREGROUND_SERVICE`
-- Android 11+：`MANAGE_EXTERNAL_STORAGE`（設定裡手動開「所有檔案存取」）
-
-寫入：`BridgeServer` 目前 `mode=ro`。要開寫入時把 hello 的 `mode`/`caps` 改掉，並在對應 op 裡呼叫 `FileOutputStream`。沒有這項權限時不要回 `rw`。
+權限：`INTERNET`、`FOREGROUND_SERVICE`、Android 11+ 的「所有檔案存取」。
