@@ -69,10 +69,14 @@ public class BridgeServer {
             caps.put("list");
             caps.put("stat");
             caps.put("read");
+            caps.put("write");
+            caps.put("create");
+            caps.put("delete");
+            caps.put("rename");
             writeObj(output, new JSONObject()
                     .put("op", "hello_ok")
                     .put("ver", 1)
-                    .put("mode", "ro")
+                    .put("mode", "rw")
                     .put("caps", caps)
                     .put("root", root.getAbsolutePath())
                     .put("device", Build.MODEL), null);
@@ -85,11 +89,20 @@ public class BridgeServer {
                     return;
                 }
                 int extra = req.optInt("data_len", 0);
-                if (extra > 0) {
-                    skipFully(input, extra);
-                }
                 Object id = req.opt("id");
                 String op = req.optString("op");
+                byte[] blob = null;
+                if ("write".equals(op) && extra > 0) {
+                    if (extra > MAX_READ) {
+                        writeObj(output, err(id, "toobig"), null);
+                        skipFully(input, extra);
+                        continue;
+                    }
+                    blob = new byte[extra];
+                    input.readFully(blob);
+                } else if (extra > 0) {
+                    skipFully(input, extra);
+                }
                 try {
                     switch (op) {
                         case "list":
@@ -105,10 +118,16 @@ public class BridgeServer {
                             writeObj(output, new JSONObject().put("op", "pong").put("id", id), null);
                             break;
                         case "write":
+                            writeFile(req, id, blob, output);
+                            break;
                         case "create":
+                            writeObj(output, createFile(req, id), null);
+                            break;
                         case "delete":
+                            writeObj(output, deleteFile(req, id), null);
+                            break;
                         case "rename":
-                            writeObj(output, err(id, "ro"), null);
+                            writeObj(output, renameFile(req, id), null);
                             break;
                         default:
                             writeObj(output, err(id, "unknown"), null);
@@ -195,6 +214,59 @@ public class BridgeServer {
             data = n <= 0 ? new byte[0] : Arrays.copyOf(buf, n);
         }
         writeObj(output, new JSONObject().put("op", "ok").put("id", id), data);
+    }
+
+    private void writeFile(JSONObject req, Object id, byte[] blob, DataOutputStream output)
+            throws Exception {
+        if (blob == null) {
+            blob = new byte[0];
+        }
+        File f = resolve(req.optString("path", "."));
+        if (f.isDirectory()) {
+            writeObj(output, err(id, "isdir"), null);
+            return;
+        }
+        long offset = req.optLong("offset", 0);
+        try (RandomAccessFile raf = new RandomAccessFile(f, "rw")) {
+            raf.seek(offset);
+            raf.write(blob);
+        }
+        writeObj(output, new JSONObject().put("op", "ok").put("id", id).put("n", blob.length), null);
+    }
+
+    private JSONObject createFile(JSONObject req, Object id) throws Exception {
+        File f = resolve(req.optString("path", "."));
+        if (f.isDirectory()) {
+            return err(id, "isdir");
+        }
+        f.createNewFile();
+        return new JSONObject().put("op", "ok").put("id", id);
+    }
+
+    private JSONObject deleteFile(JSONObject req, Object id) throws Exception {
+        File f = resolve(req.optString("path", "."));
+        if (!f.exists()) {
+            throw new FileNotFoundException();
+        }
+        if (f.isDirectory()) {
+            File[] children = f.listFiles();
+            if (children != null && children.length > 0) {
+                return err(id, "notempty");
+            }
+        }
+        if (!f.delete()) {
+            return err(id, "err");
+        }
+        return new JSONObject().put("op", "ok").put("id", id);
+    }
+
+    private JSONObject renameFile(JSONObject req, Object id) throws Exception {
+        File from = resolve(req.optString("path", "."));
+        File to = resolve(req.optString("to", ""));
+        if (!from.renameTo(to)) {
+            return err(id, "rename");
+        }
+        return new JSONObject().put("op", "ok").put("id", id);
     }
 
     private static JSONObject err(Object id, String code) throws Exception {

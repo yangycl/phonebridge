@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.Base64;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -53,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
         stop.setOnClickListener(v -> stopService(new Intent(this, BridgeService.class)));
 
         Button refresh = new Button(this);
-        refresh.setText("重新顯示 IP");
+        refresh.setText("重新顯示配對碼");
         refresh.setOnClickListener(v -> text.setText(statusText()));
 
         LinearLayout layout = new LinearLayout(this);
@@ -67,10 +68,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String statusText() {
-        return "PIN " + pin
+        String ip = localIpv4();
+        return "配對碼 " + ipv4Code(ip)
+                + "\nPIN " + pin
                 + "\n埠 " + BridgeServer.PORT
-                + "\nIP " + localIpv4()
+                + "\nIP " + ip
                 + "\n請先在系統設定開啟「所有檔案存取」。";
+    }
+
+    static String ipv4Code(String ip) {
+        try {
+            byte[] raw = InetAddress.getByName(ip).getAddress();
+            if (raw.length != 4) {
+                return "------";
+            }
+            return Base64.encodeToString(raw, Base64.NO_WRAP | Base64.NO_PADDING);
+        } catch (Exception e) {
+            return "------";
+        }
     }
 
     static String localIpv4() {
